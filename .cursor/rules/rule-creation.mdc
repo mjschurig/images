@@ -1,0 +1,96 @@
+---
+description: 
+globs: *.mdc
+alwaysApply: false
+---
+# Rule Creation Guidelines
+
+## Purpose
+This meta-rule defines the standards and best practices for creating and maintaining rules in the .cursor/rules directory.
+
+## Rule File Structure
+
+1. **Naming Convention**
+   - Use kebab-case for filenames
+   - End with `.mdc` extension
+   - Be descriptive and specific (e.g., `devcontainer-features.mdc`, `git-workflow.mdc`)
+
+2. **Content Structure**
+   ```markdown
+   # Rule Title (Clear and Concise)
+
+   ## Purpose
+   - Clear statement of what this rule accomplishes
+   - Why this rule exists
+
+   ## Core Principles
+   - Key principles in bullet points
+   - Fundamental concepts to remember
+
+   ## Implementation
+   - Specific steps or guidelines
+   - Examples when applicable
+   - Code blocks when relevant
+
+   ## Best Practices
+   - Do's and Don'ts
+   - Common pitfalls to avoid
+
+   ## References
+   - Sources of information
+   - Related documentation
+   ```
+
+3. **Writing Style**
+   - Use clear, direct language
+   - Include examples for complex concepts
+   - Use markdown formatting consistently
+   - Keep rules atomic and focused
+
+4. **Maintenance**
+   - Update rules when new information emerges
+   - Include last modified date
+   - Document significant changes
+   - Remove outdated rules
+
+5. **Organization**
+   - One concept per rule
+   - Cross-reference related rules
+   - Use consistent terminology
+   - Keep hierarchy logical
+
+## Rule Quality Checklist
+- [ ] Is the rule clear and unambiguous?
+- [ ] Does it solve a specific problem?
+- [ ] Are examples provided where helpful?
+- [ ] Is it maintainable and updatable?
+- [ ] Does it follow markdown best practices?
+- [ ] Are sources cited when applicable?
+
+## Example
+```markdown
+# Feature Selection in Dev Containers
+
+## Purpose
+Define standard process for selecting and implementing dev container features.
+
+## Core Principles
+- Always check existing features first
+- Prefer official solutions
+- Keep it simple and maintainable
+
+## Implementation
+1. Check containers.dev/features
+2. Evaluate available options
+3. Select simplest solution
+
+## Best Practices
+- Use official features when available
+- Document feature selection rationale
+- Keep configurations minimal
+```
+```
+
+
+
+This meta-rule ensures consistent, maintainable, and useful rules across the project. Each new rule should follow these guidelines to maintain quality and clarity.
