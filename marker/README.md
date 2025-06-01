@@ -20,6 +20,14 @@ This Docker container provides a Streamlit web interface for the [Marker](https:
 docker build -t marker-streamlit .
 ```
 
+building might take a while, use
+
+```bash
+docker build --progress=plain -t marker-streamlit .
+```
+
+for displaying progress.
+
 ### Run the Container
 
 ```bash

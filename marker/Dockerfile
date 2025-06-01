@@ -9,24 +9,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry==1.8.4
-
-# Set Poetry configuration
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
-
 WORKDIR /app
 
 # Clone marker repository
 RUN git clone https://github.com/VikParuchuri/marker.git . && \
     git checkout master
-
-# Install dependencies
-RUN poetry install --only=main && \
-    poetry run pip install streamlit streamlit-ace && \
-    rm -rf $POETRY_CACHE_DIR
 
 # Production stage
 FROM python:3.11-slim AS production
@@ -40,25 +27,25 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     libgcc-s1 \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Create non-root user with static UID/GID
-RUN groupadd -g 10001 -S markergroup && \
-    useradd -u 10000 -S markeruser -G markergroup && \
+RUN groupadd -g 10001 markergroup && \
+    useradd -u 10000 -g markergroup -m -s /bin/bash markeruser && \
     mkdir -p /app /data /output && \
     chown -R markeruser:markergroup /app /data /output
 
 WORKDIR /app
 
-# Copy virtual environment from builder stage
-COPY --from=builder --chown=markeruser:markergroup /app/.venv /app/.venv
-
-# Copy application code
+# Copy application code first
 COPY --from=builder --chown=markeruser:markergroup /app /app
 
-# Make sure we use venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Install Python dependencies directly with pip
+RUN pip install --verbose --progress-bar on --no-cache-dir .
+RUN pip install --verbose --progress-bar on --no-cache-dir streamlit streamlit-ace
+RUN pip cache purge
 
 # Set environment variables for marker
 ENV TORCH_DEVICE=cpu \
