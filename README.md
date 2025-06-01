@@ -4,7 +4,7 @@ This repository contains Docker images that can be deployed using GitHub Actions
 
 ## 📁 Available Images
 
-- **marker**: PDF to Markdown converter with Streamlit interface
+- [**marker**](https://github.com/VikParuchuri/marker): PDF to Markdown converter with Streamlit interface
 
 ## 🚀 Deployment Pipeline
 
