@@ -34,8 +34,8 @@ for displaying progress.
 docker run -d \
   --name marker-app \
   -p 8501:8501 \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/output:/output \
+  -v $(pwd)/conversion_results:/app/conversion_results \
+  -v $(pwd)/debug_data:/app/debug_data \
   marker-streamlit
 ```
 
@@ -50,7 +50,9 @@ Open your browser and navigate to: `http://localhost:8501`
 1. **Upload PDF**: Use the Streamlit interface to upload your PDF file
 2. **Configure Options**: Set conversion parameters (optional)
 3. **Convert**: Click convert to process your document
-4. **Download**: Download the generated markdown and extracted images
+4. **Download**: Download the generated markdown and extracted images through the web interface
+
+**Note**: The Streamlit app processes files in memory and provides downloads through the web interface. The mounted volumes are primarily for CLI operations and debug data when debug mode is enabled.
 
 ### Advanced Usage with Environment Variables
 
@@ -58,8 +60,8 @@ Open your browser and navigate to: `http://localhost:8501`
 docker run -d \
   --name marker-app \
   -p 8501:8501 \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/output:/output \
+  -v $(pwd)/conversion_results:/app/conversion_results \
+  -v $(pwd)/debug_data:/app/debug_data \
   -e TORCH_DEVICE=cuda \
   -e STREAMLIT_SERVER_PORT=8501 \
   marker-streamlit
@@ -74,8 +76,8 @@ docker run -d \
   --name marker-app \
   --gpus all \
   -p 8501:8501 \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/output:/output \
+  -v $(pwd)/conversion_results:/app/conversion_results \
+  -v $(pwd)/debug_data:/app/debug_data \
   -e TORCH_DEVICE=cuda \
   marker-streamlit
 ```
@@ -83,7 +85,7 @@ docker run -d \
 Single line
 
 ```bash
-docker run -d --name marker-app --gpus all -p 8501:8501 -v $(pwd)/data:/data -v $(pwd)/output:/output -e TORCH_DEVICE=cuda marker-streamlit
+docker run -d --name marker-app --gpus all -p 8501:8501 -v $(pwd)/conversion_results:/app/conversion_results -v $(pwd)/debug_data:/app/debug_data -e TORCH_DEVICE=cuda marker-streamlit
 ```
 
 
@@ -102,8 +104,12 @@ docker run -d --name marker-app --gpus all -p 8501:8501 -v $(pwd)/data:/data -v 
 
 | Path | Description |
 |------|-------------|
-| `/data` | Input directory for PDF files |
-| `/output` | Output directory for converted files |
+| `/app/conversion_results` | Output directory for CLI conversion operations |
+| `/app/debug_data` | Debug data directory (when debug mode is enabled) |
+
+**Note**: The Streamlit web interface handles file uploads and downloads through the browser. These volumes are primarily used for:
+- CLI operations (if running marker commands directly in the container)
+- Debug data when debug mode is enabled in the Streamlit interface
 
 ### Ports
 
@@ -124,8 +130,8 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - ./data:/data
-      - ./output:/output
+      - ./conversion_results:/app/conversion_results
+      - ./debug_data:/app/debug_data
     environment:
       - TORCH_DEVICE=cpu
     restart: unless-stopped

@@ -11,9 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Clone marker repository
-RUN git clone https://github.com/VikParuchuri/marker.git . && \
-    git checkout master
+# Copy marker repository from local base directory
+COPY base/marker/ .
 
 # Production stage
 FROM python:3.11-slim AS production
@@ -34,8 +33,8 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user with static UID/GID
 RUN groupadd -g 10001 markergroup && \
     useradd -u 10000 -g markergroup -m -s /bin/bash markeruser && \
-    mkdir -p /app /data /output && \
-    chown -R markeruser:markergroup /app /data /output
+    mkdir -p /app /app/conversion_results /app/debug_data && \
+    chown -R markeruser:markergroup /app
 
 WORKDIR /app
 
@@ -54,8 +53,8 @@ RUN pip cache purge
 ENV PYTHONPATH=/app \
     STREAMLIT_SERVER_PORT=8501
 
-# Create directories for data persistence
-VOLUME ["/data", "/output"]
+# Create directories for data persistence (actual marker paths)
+VOLUME ["/app/conversion_results", "/app/debug_data"]
 
 # Switch to non-root user
 USER markeruser:markergroup
