@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy marker repository from local base directory
-COPY base/marker/ .
+COPY marker-base/ .
 
 # Production stage
 FROM python:3.11-slim AS production
