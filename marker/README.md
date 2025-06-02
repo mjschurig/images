@@ -80,6 +80,13 @@ docker run -d \
   marker-streamlit
 ```
 
+Single line
+
+```bash
+docker run -d --name marker-app --gpus all -p 8501:8501 -v $(pwd)/data:/data -v $(pwd)/output:/output -e TORCH_DEVICE=cuda marker-streamlit
+```
+
+
 ## Configuration
 
 ### Environment Variables

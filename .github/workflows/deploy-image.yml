@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: 'marker'
+      version:
+        description: 'Version tag (e.g., v1.0.0, v1.2.3)'
+        required: true
+        type: string
+        default: 'v1.0.0'
       registry:
         description: 'Registry to push to'
         required: true
@@ -77,11 +82,8 @@ jobs:
             ${{ github.event.inputs.registry == 'both' && format('{0}/{1}/{2}', env.GITHUB_REGISTRY, github.repository, github.event.inputs.image_name) || '' }}
             ${{ github.event.inputs.registry == 'both' && format('{0}/{1}', secrets.DOCKER_USERNAME, github.event.inputs.image_name) || '' }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
-            type=sha,prefix={{branch}}-
+            type=raw,value=${{ github.event.inputs.version }}
+            type=raw,value=latest
 
       - name: Build and push Docker image
         id: push
