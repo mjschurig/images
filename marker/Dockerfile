@@ -42,18 +42,17 @@ WORKDIR /app
 # Copy application code first
 COPY --from=builder --chown=markeruser:markergroup /app /app
 
+# Copy version file
+COPY --chown=markeruser:markergroup VERSION /app/VERSION
+
 # Install Python dependencies directly with pip
 RUN pip install --verbose --progress-bar on --no-cache-dir .
 RUN pip install --verbose --progress-bar on --no-cache-dir streamlit streamlit-ace
 RUN pip cache purge
 
 # Set environment variables for marker
-ENV TORCH_DEVICE=cpu \
-    PYTHONPATH=/app \
-    STREAMLIT_SERVER_PORT=8501 \
-    STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
-    STREAMLIT_SERVER_HEADLESS=true \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+ENV PYTHONPATH=/app \
+    STREAMLIT_SERVER_PORT=8501
 
 # Create directories for data persistence
 VOLUME ["/data", "/output"]
@@ -68,13 +67,18 @@ EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
+# Read version from file and set as build arg for labels
+ARG VERSION
+RUN if [ -z "$VERSION" ]; then VERSION=$(cat VERSION 2>/dev/null || echo "unknown"); fi
+
 # Add metadata
 LABEL maintainer="marker-docker@example.com" \
-      version="1.0.0" \
+      version="${VERSION}" \
       description="Marker PDF to Markdown converter with Streamlit interface" \
       org.opencontainers.image.source="https://github.com/VikParuchuri/marker" \
       org.opencontainers.image.title="Marker PDF Converter" \
-      org.opencontainers.image.description="Convert PDF to markdown with high accuracy using Streamlit interface"
+      org.opencontainers.image.description="Convert PDF to markdown with high accuracy using Streamlit interface" \
+      org.opencontainers.image.version="${VERSION}"
 
-# Start Streamlit app
-CMD ["streamlit", "run", "marker_app.py", "--server.port=8501", "--server.address=0.0.0.0"] 
+# Start Streamlit app using marker_gui command
+CMD ["marker_gui"] 
