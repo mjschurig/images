@@ -189,19 +189,19 @@ jobs:
             export REGISTRY_PREFIX="${{ secrets.DOCKER_USERNAME }}/"
           fi
           
-          # Build images
-          docker-compose -f $COMPOSE_FILE build
+          # Build images using modern docker compose command
+          docker compose -f $COMPOSE_FILE build
           
-          # Tag and push images
-          SERVICES=$(docker-compose -f $COMPOSE_FILE config --services)
+          # Get services using modern docker compose command
+          SERVICES=$(docker compose -f $COMPOSE_FILE config --services)
           DIGEST=""
           
           for SERVICE in $SERVICES; do
             IMAGE_NAME="${REGISTRY_PREFIX}${{ github.event.inputs.image_name }}-${SERVICE}"
             
             # Tag with version and latest
-            docker tag ${{ github.event.inputs.image_name }}_${SERVICE} ${IMAGE_NAME}:${{ steps.version.outputs.version }}
-            docker tag ${{ github.event.inputs.image_name }}_${SERVICE} ${IMAGE_NAME}:latest
+            docker tag ${{ github.event.inputs.image_name }}-${SERVICE} ${IMAGE_NAME}:${{ steps.version.outputs.version }}
+            docker tag ${{ github.event.inputs.image_name }}-${SERVICE} ${IMAGE_NAME}:latest
             
             # Push images
             docker push ${IMAGE_NAME}:${{ steps.version.outputs.version }}
