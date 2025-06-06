@@ -1,0 +1,29 @@
+services:
+  numba:
+    image: mcr.microsoft.com/devcontainers/python:3.13.4-bookworm
+    user: vscode
+
+    # Conditional GPU support - will gracefully fall back if no GPUs available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Mount only the Conway server directory
+    volumes:
+      - ../sample/conway-server:/workspaces/conway-server:cached
+
+    # Set working directory
+    working_dir: /workspaces/conway-server
+
+    # Environment variables for CUDA
+    environment:
+      - CUDA_HOME=/usr/local/cuda
+      - PATH=/usr/local/cuda/bin:${PATH}
+      - LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+    # Use setup script for container initialization
+    entrypoint: ["/workspaces/images/numba/setup.sh"]
