@@ -21,6 +21,15 @@ on:
           - 'docker.io'
           - 'both'
         default: 'ghcr.io'
+      deployment_type:
+        description: 'Deployment method'
+        required: false
+        type: choice
+        options:
+          - 'auto'
+          - 'dockerfile'
+          - 'docker-compose'
+        default: 'auto'
 
 env:
   GITHUB_REGISTRY: ghcr.io
@@ -40,17 +49,54 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate image directory
+      - name: Validate image directory and determine deployment type
+        id: validate
         run: |
           if [ ! -d "${{ github.event.inputs.image_name }}" ]; then
             echo "Error: Directory '${{ github.event.inputs.image_name }}' does not exist"
             exit 1
           fi
-          if [ ! -f "${{ github.event.inputs.image_name }}/Dockerfile" ]; then
-            echo "Error: Dockerfile not found in '${{ github.event.inputs.image_name }}' directory"
+          
+          # Check for available deployment files
+          HAS_DOCKERFILE=""
+          HAS_COMPOSE=""
+          DEPLOYMENT_TYPE="${{ github.event.inputs.deployment_type }}"
+          
+          if [ -f "${{ github.event.inputs.image_name }}/Dockerfile" ]; then
+            HAS_DOCKERFILE="true"
+            echo "📄 Found Dockerfile"
+          fi
+          
+          if [ -f "${{ github.event.inputs.image_name }}/docker-compose.yml" ] || [ -f "${{ github.event.inputs.image_name }}/docker-compose.yaml" ]; then
+            HAS_COMPOSE="true"
+            echo "🐳 Found Docker Compose file"
+          fi
+          
+          # Determine deployment type
+          if [ "$DEPLOYMENT_TYPE" = "auto" ]; then
+            if [ "$HAS_COMPOSE" = "true" ]; then
+              DEPLOYMENT_TYPE="docker-compose"
+              echo "🎯 Auto-selected: Docker Compose deployment"
+            elif [ "$HAS_DOCKERFILE" = "true" ]; then
+              DEPLOYMENT_TYPE="dockerfile"
+              echo "🎯 Auto-selected: Dockerfile deployment"
+            else
+              echo "❌ Error: No Dockerfile or docker-compose.yml found"
+              exit 1
+            fi
+          elif [ "$DEPLOYMENT_TYPE" = "dockerfile" ] && [ "$HAS_DOCKERFILE" != "true" ]; then
+            echo "❌ Error: Dockerfile deployment requested but no Dockerfile found"
+            exit 1
+          elif [ "$DEPLOYMENT_TYPE" = "docker-compose" ] && [ "$HAS_COMPOSE" != "true" ]; then
+            echo "❌ Error: Docker Compose deployment requested but no docker-compose.yml found"
             exit 1
           fi
-          echo "✅ Validated: ${{ github.event.inputs.image_name }} directory exists with Dockerfile"
+          
+          echo "deployment_type=$DEPLOYMENT_TYPE" >> $GITHUB_OUTPUT
+          echo "has_dockerfile=$HAS_DOCKERFILE" >> $GITHUB_OUTPUT
+          echo "has_compose=$HAS_COMPOSE" >> $GITHUB_OUTPUT
+          
+          echo "✅ Validated: ${{ github.event.inputs.image_name }} directory with $DEPLOYMENT_TYPE deployment"
 
       - name: Read version from VERSION file
         id: version
@@ -100,8 +146,9 @@ jobs:
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        id: push
+      - name: Build and push Docker image (Dockerfile)
+        if: ${{ steps.validate.outputs.deployment_type == 'dockerfile' }}
+        id: push_dockerfile
         uses: docker/build-push-action@v5
         with:
           context: ./${{ github.event.inputs.image_name }}
@@ -115,12 +162,76 @@ jobs:
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
 
-      - name: Generate artifact attestation
-        if: ${{ github.event.inputs.registry == 'ghcr.io' || github.event.inputs.registry == 'both' }}
+      - name: Build and push Docker image (Docker Compose)
+        if: ${{ steps.validate.outputs.deployment_type == 'docker-compose' }}
+        id: push_compose
+        run: |
+          cd ${{ github.event.inputs.image_name }}
+          
+          # Check for docker-compose file variants
+          COMPOSE_FILE=""
+          if [ -f "docker-compose.yml" ]; then
+            COMPOSE_FILE="docker-compose.yml"
+          elif [ -f "docker-compose.yaml" ]; then
+            COMPOSE_FILE="docker-compose.yaml"
+          fi
+          
+          echo "Using compose file: $COMPOSE_FILE"
+          
+          # Set environment variables for compose
+          export VERSION=${{ steps.version.outputs.version }}
+          export REGISTRY_PREFIX=""
+          
+          # Determine registry prefix based on input
+          if [ "${{ github.event.inputs.registry }}" = "ghcr.io" ]; then
+            export REGISTRY_PREFIX="${{ env.GITHUB_REGISTRY }}/${{ github.repository }}/"
+          elif [ "${{ github.event.inputs.registry }}" = "docker.io" ]; then
+            export REGISTRY_PREFIX="${{ secrets.DOCKER_USERNAME }}/"
+          fi
+          
+          # Build images
+          docker-compose -f $COMPOSE_FILE build
+          
+          # Tag and push images
+          SERVICES=$(docker-compose -f $COMPOSE_FILE config --services)
+          DIGEST=""
+          
+          for SERVICE in $SERVICES; do
+            IMAGE_NAME="${REGISTRY_PREFIX}${{ github.event.inputs.image_name }}-${SERVICE}"
+            
+            # Tag with version and latest
+            docker tag ${{ github.event.inputs.image_name }}_${SERVICE} ${IMAGE_NAME}:${{ steps.version.outputs.version }}
+            docker tag ${{ github.event.inputs.image_name }}_${SERVICE} ${IMAGE_NAME}:latest
+            
+            # Push images
+            docker push ${IMAGE_NAME}:${{ steps.version.outputs.version }}
+            docker push ${IMAGE_NAME}:latest
+            
+            # Get digest for the main service (assume first service is main)
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_NAME}:latest | cut -d'@' -f2)
+            fi
+            
+            echo "Pushed: ${IMAGE_NAME}:${{ steps.version.outputs.version }}"
+            echo "Pushed: ${IMAGE_NAME}:latest"
+          done
+          
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Generate artifact attestation (Dockerfile)
+        if: ${{ (github.event.inputs.registry == 'ghcr.io' || github.event.inputs.registry == 'both') && steps.validate.outputs.deployment_type == 'dockerfile' }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.GITHUB_REGISTRY }}/${{ github.repository }}/${{ github.event.inputs.image_name }}
-          subject-digest: ${{ steps.push.outputs.digest }}
+          subject-digest: ${{ steps.push_dockerfile.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation (Docker Compose)
+        if: ${{ (github.event.inputs.registry == 'ghcr.io' || github.event.inputs.registry == 'both') && steps.validate.outputs.deployment_type == 'docker-compose' }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.GITHUB_REGISTRY }}/${{ github.repository }}/${{ github.event.inputs.image_name }}
+          subject-digest: ${{ steps.push_compose.outputs.digest }}
           push-to-registry: true
 
       - name: Image deployment summary
@@ -130,9 +241,15 @@ jobs:
           echo "**Image:** ${{ github.event.inputs.image_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Registry:** ${{ github.event.inputs.registry }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Type:** ${{ steps.validate.outputs.deployment_type }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tags pushed:**" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image digest:** \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY 
+          
+          if [ "${{ steps.validate.outputs.deployment_type }}" = "dockerfile" ]; then
+            echo "**Image digest:** \`${{ steps.push_dockerfile.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Image digest:** \`${{ steps.push_compose.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          fi 
