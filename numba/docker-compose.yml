@@ -13,11 +13,11 @@ services:
               capabilities: [gpu]
 
     # Mount only the Conway server directory
-    volumes:
-      - ../sample/conway-server:/workspaces/conway-server:cached
+    # volumes:
+    #   - ../sample/conway-server:/workspaces/conway-server:cached
 
     # Set working directory
-    working_dir: /workspaces/conway-server
+    # working_dir: /workspaces/conway-server
 
     # Environment variables for CUDA
     environment:
