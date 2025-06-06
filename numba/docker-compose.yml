@@ -1,6 +1,6 @@
 services:
   numba:
-    image: mcr.microsoft.com/devcontainers/python:3.13.4-bookworm
+    image: python:3.13.4-bookworm
     user: vscode
 
     # Conditional GPU support - will gracefully fall back if no GPUs available
