@@ -189,27 +189,77 @@ jobs:
             export REGISTRY_PREFIX="${{ secrets.DOCKER_USERNAME }}/"
           fi
           
+          # Set LD_LIBRARY_PATH to avoid warnings
+          export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-""}
+          
           # Build images using modern docker compose command
+          echo "Building images with docker compose..."
           docker compose -f $COMPOSE_FILE build
+          
+          # List all images to see what was actually built
+          echo "Images after build:"
+          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}"
           
           # Get services using modern docker compose command
           SERVICES=$(docker compose -f $COMPOSE_FILE config --services)
+          echo "Services found: $SERVICES"
+          
           DIGEST=""
           
           for SERVICE in $SERVICES; do
+            echo "Processing service: $SERVICE"
+            
+            # Try different possible image name formats that Docker Compose might use
+            POSSIBLE_NAMES=(
+              "${{ github.event.inputs.image_name }}_${SERVICE}"
+              "${{ github.event.inputs.image_name }}-${SERVICE}"
+              "${SERVICE}"
+              "${{ github.event.inputs.image_name }}_${SERVICE}:latest"
+              "${{ github.event.inputs.image_name }}-${SERVICE}:latest"
+            )
+            
+            SOURCE_IMAGE=""
+            for POSSIBLE_NAME in "${POSSIBLE_NAMES[@]}"; do
+              if docker image inspect "$POSSIBLE_NAME" >/dev/null 2>&1; then
+                SOURCE_IMAGE="$POSSIBLE_NAME"
+                echo "Found source image: $SOURCE_IMAGE"
+                break
+              fi
+            done
+            
+            if [ -z "$SOURCE_IMAGE" ]; then
+              echo "Error: Could not find built image for service $SERVICE"
+              echo "Tried the following names:"
+              for POSSIBLE_NAME in "${POSSIBLE_NAMES[@]}"; do
+                echo "  - $POSSIBLE_NAME"
+              done
+              echo "Available images:"
+              docker images
+              exit 1
+            fi
+            
+            # Remove :latest suffix if present for tagging
+            SOURCE_IMAGE_BASE="${SOURCE_IMAGE%:latest}"
+            
             IMAGE_NAME="${REGISTRY_PREFIX}${{ github.event.inputs.image_name }}-${SERVICE}"
             
             # Tag with version and latest
-            docker tag ${{ github.event.inputs.image_name }}-${SERVICE} ${IMAGE_NAME}:${{ steps.version.outputs.version }}
-            docker tag ${{ github.event.inputs.image_name }}-${SERVICE} ${IMAGE_NAME}:latest
+            echo "Tagging $SOURCE_IMAGE_BASE as ${IMAGE_NAME}:${{ steps.version.outputs.version }}"
+            docker tag "$SOURCE_IMAGE_BASE" "${IMAGE_NAME}:${{ steps.version.outputs.version }}"
+            
+            echo "Tagging $SOURCE_IMAGE_BASE as ${IMAGE_NAME}:latest"
+            docker tag "$SOURCE_IMAGE_BASE" "${IMAGE_NAME}:latest"
             
             # Push images
-            docker push ${IMAGE_NAME}:${{ steps.version.outputs.version }}
-            docker push ${IMAGE_NAME}:latest
+            echo "Pushing ${IMAGE_NAME}:${{ steps.version.outputs.version }}"
+            docker push "${IMAGE_NAME}:${{ steps.version.outputs.version }}"
+            
+            echo "Pushing ${IMAGE_NAME}:latest"
+            docker push "${IMAGE_NAME}:latest"
             
             # Get digest for the main service (assume first service is main)
             if [ -z "$DIGEST" ]; then
-              DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${IMAGE_NAME}:latest | cut -d'@' -f2)
+              DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE_NAME}:latest" | cut -d'@' -f2)
             fi
             
             echo "Pushed: ${IMAGE_NAME}:${{ steps.version.outputs.version }}"

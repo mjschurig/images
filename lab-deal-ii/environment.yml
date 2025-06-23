@@ -1,0 +1,49 @@
+name: dealii-dev
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Python and core packages
+  - python=3.9
+  - pip
+
+  # Scientific computing stack
+  - numpy
+  - scipy
+  - matplotlib
+  - sympy
+  - pandas
+  - seaborn
+
+  # Jupyter ecosystem
+  - jupyterlab
+  - jupyter
+  - ipywidgets
+  - ipympl # Interactive matplotlib
+
+  # C++ kernel support
+  - xeus-cling
+  - xtensor
+  - xtensor-blas
+
+  # Development tools
+  - cmake
+  - make
+  - gxx_linux-64
+  - gcc_linux-64
+  - gfortran_linux-64
+
+  # Additional scientific packages
+  - h5py
+  - netcdf4
+  - vtk
+
+  # Visualization
+  - pyvista
+  - mayavi
+
+  # Additional pip packages
+  - pip:
+      - meshio
+      - gmsh
+      - pylablib
