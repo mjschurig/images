@@ -26,12 +26,9 @@ dependencies:
   - xtensor
   - xtensor-blas
 
-  # Development tools
+  # Development tools (compilers installed via apt for better compatibility)
   - cmake
   - make
-  - gxx_linux-64
-  - gcc_linux-64
-  - gfortran_linux-64
 
   # Additional scientific packages
   - h5py

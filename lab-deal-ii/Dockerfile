@@ -41,15 +41,31 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/tmp/*
 
 # Install CMake 3.23 (latest stable 3.23.x, minimum for trilinos)
-RUN wget -qO- https://github.com/Kitware/CMake/releases/download/v3.23.5/cmake-3.23.5-linux-x86_64.tar.gz | tar -xzC /opt && \
-    ln -sf /opt/cmake-3.23.5-linux-x86_64/bin/* /usr/local/bin/ && \
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        CMAKE_ARCH="x86_64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        CMAKE_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    wget -qO- https://github.com/Kitware/CMake/releases/download/v3.23.5/cmake-3.23.5-linux-${CMAKE_ARCH}.tar.gz | tar -xzC /opt && \
+    ln -sf /opt/cmake-3.23.5-linux-${CMAKE_ARCH}/bin/* /usr/local/bin/ && \
     rm -rf /tmp/*
 
 # Install Miniconda
 ENV CONDA_DIR=/opt/conda
 ENV PATH=$CONDA_DIR/bin:$PATH
 
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        MINICONDA_ARCH="x86_64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        MINICONDA_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${MINICONDA_ARCH}.sh -O /tmp/miniconda.sh && \
     /bin/bash /tmp/miniconda.sh -b -p $CONDA_DIR && \
     rm /tmp/miniconda.sh && \
     $CONDA_DIR/bin/conda clean -a -y && \
